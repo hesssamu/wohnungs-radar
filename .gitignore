@@ -1,0 +1,16 @@
+# Daten und Zwischenspeicher — gehören nicht ins Repo
+data/
+*.db
+*.db-wal
+*.db-shm
+*.log
+
+# Zugangsdaten liegen ausschliesslich in ~/.config/secrets/wohnungs-radar.env
+*.env
+!*.env.example
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
