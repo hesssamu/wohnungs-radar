@@ -19,8 +19,8 @@ Der Server lauscht auf `127.0.0.1` **und** auf der Tailscale-Adresse des Mac Stu
 Damit ist er von jedem Gerät im eigenen Tailnet erreichbar, aber nicht aus dem offenen Netz:
 
 ```
-http://samuels-mac-studio.tail5383ed.ts.net:8840     # MacBook, iPhone
-http://100.102.112.83:8840                            # dieselbe Maschine per IP
+http://<dein-rechner>.<tailnet>.ts.net:8840     # MacBook, iPhone
+http://100.x.y.z:8840                            # dieselbe Maschine per IP
 ```
 
 Voraussetzung: der Mac Studio läuft und Tailscale ist auf beiden Geräten an.

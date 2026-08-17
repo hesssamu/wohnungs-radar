@@ -26,7 +26,7 @@ let stars = new Set(JSON.parse(localStorage.getItem('wr_stars') || '[]'));
 
 /* ---- Kennwort: bewusst nur eine Türklinke, kein Schloss. Die Daten sind
        öffentliche Inserate; echten Schutz bietet nur die Server-Fassung. ---- */
-const GATE = 'hess2026';
+const GATE = 'radar2026';
 function unlock(){ $('gate').remove(); $('app').classList.remove('hide'); start(); }
 $('gateForm').addEventListener('submit', e => {
   e.preventDefault();
