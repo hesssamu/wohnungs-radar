@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wohnungs-Radar</title>
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
+<style>
+  /* Zugangsseite */
+  .gate{position:fixed; inset:0; z-index:100; background:var(--paper);
+    display:flex; align-items:center; justify-content:center; padding:24px;}
+  .gate-box{background:var(--surface); border:1px solid var(--rule); border-radius:14px;
+    padding:30px 28px; max-width:420px; width:100%; box-shadow:var(--sh-2);
+    display:flex; flex-direction:column; gap:14px;}
+  .gate-box h1{font-size:22px; margin:0; letter-spacing:-.01em;}
+  .gate-box p{margin:0; font-size:14px; color:var(--muted); line-height:1.5;}
+  .gate-box input{background:var(--sunk); border:1px solid var(--rule); border-radius:9px;
+    padding:11px 13px; font-size:16px;}
+  .gate-box button{background:var(--accent); border:none; color:#fff; border-radius:9px;
+    padding:11px 13px; font-size:15px; font-weight:650; cursor:pointer;}
+  .gate-err{color:var(--bad); font-size:13.5px; min-height:19px;}
+</style>
+</head>
+<body>
+
+<div class="gate" id="gate">
+  <form class="gate-box" id="gateForm">
+    <h1>Wohnungs-Radar</h1>
+    <p>Vermietete Eigentumswohnungen aus ganz Deutschland, gerechnet mit unserem Modell.
+       Bitte das Kennwort eingeben.</p>
+    <input type="password" id="gatePw" placeholder="Kennwort" autocomplete="current-password" autofocus>
+    <button type="submit">Öffnen</button>
+    <div class="gate-err" id="gateErr"></div>
+  </form>
+</div>
+
+<div id="app" class="hide">
+<header class="topbar">
+  <div class="tb-inner">
+    <div class="brand"><span class="mark" aria-hidden="true"></span><span class="bname">Wohnungs-Radar</span></div>
+    <div class="tb-stats" id="tbStats"></div>
+    <div class="tb-right">
+      <button id="filterToggle" class="btn ghost mobile-only">Filter</button>
+      <label class="sortwrap"><span>Sortieren</span>
+        <select id="sort">
+          <option value="brutto">Bruttorendite</option>
+          <option value="cf">Cashflow pro Monat</option>
+          <option value="ekr">Eigenkapitalrendite</option>
+          <option value="ek">Eigenkapitalbedarf</option>
+          <option value="faktor">Kaufpreisfaktor</option>
+          <option value="pqm">Preis je m²</option>
+          <option value="price_asc">Kaufpreis aufsteigend</option>
+          <option value="price_desc">Kaufpreis absteigend</option>
+          <option value="qm_desc">Wohnfläche</option>
+        </select>
+      </label>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="rail" id="rail">
+    <div class="rail-head mobile-only"><strong>Filter</strong><button id="filterClose" class="btn ghost">Fertig</button></div>
+    <div class="quick">
+      <button class="chip" data-preset="rendite">≥ 6 % Rendite</button>
+      <button class="chip" data-preset="cashflow">Cashflow positiv</button>
+      <button class="chip" data-preset="klein">EK unter 30.000</button>
+      <button class="chip" data-preset="dad">Papas Liste</button>
+      <button class="chip" data-preset="star">Merkliste</button>
+    </div>
+
+    <section class="fgroup">
+      <h3>Rendite</h3>
+      <div class="fld"><label for="rmin">Bruttorendite ab <b id="rminV">alle</b></label>
+        <input id="rmin" type="range" min="0" max="10" step="0.25" value="0"></div>
+      <div class="fld"><label for="cfmin">Cashflow ab <b id="cfminV">alle</b></label>
+        <input id="cfmin" type="range" min="-500" max="800" step="25" value="-500"></div>
+      <div class="fld"><label for="ekmax">Eigenkapital bis <b id="ekmaxV">alle</b></label>
+        <input id="ekmax" type="range" min="10000" max="400000" step="5000" value="400000"></div>
+    </section>
+
+    <section class="fgroup">
+      <h3>Objekt</h3>
+      <div class="fld"><label>Kaufpreis €</label><div class="two">
+        <input id="pmin" type="number" placeholder="von" inputmode="numeric"><input id="pmax" type="number" placeholder="bis" inputmode="numeric"></div></div>
+      <div class="fld"><label>Wohnfläche m²</label><div class="two">
+        <input id="qmin" type="number" placeholder="von" inputmode="numeric"><input id="qmax" type="number" placeholder="bis" inputmode="numeric"></div></div>
+      <div class="fld"><label>Zimmer ab</label><input id="zmin" type="number" step="0.5" placeholder="egal" inputmode="decimal"></div>
+      <div class="fld"><label>Baujahr ab</label><input id="bjmin" type="number" placeholder="egal" inputmode="numeric"></div>
+      <div class="checks">
+        <label><input type="checkbox" id="balcony"> Balkon</label>
+        <label><input type="checkbox" id="lift"> Aufzug</label>
+        <label><input type="checkbox" id="cellar"> Keller</label>
+        <label><input type="checkbox" id="ebk"> Einbauküche</label>
+        <label><input type="checkbox" id="nocourtage"> provisionsfrei</label>
+        <label><input type="checkbox" id="nomulti"> keine Pakete</label>
+        <label><input type="checkbox" id="onlyrent" checked> nur mit belegter Miete</label>
+      </div>
+    </section>
+
+    <details class="fgroup"><summary><h3>Lage <span class="opt">optional</span></h3></summary>
+      <div class="fld"><label>Ort, PLZ oder Stichwort</label><input id="q" type="search" placeholder="egal wo"></div>
+      <div class="fld"><label>Bundesland</label><select id="land"><option value="">alle</option></select></div>
+    </details>
+
+    <details class="fgroup"><summary><h3>Annahmen <span class="opt">unser Modell</span></h3></summary>
+      <div class="fld"><label>Eigenkapital <b id="ekqV"></b></label><input id="ekq" type="range" min="0.05" max="0.6" step="0.01" value="0.2"></div>
+      <div class="fld"><label>Zinssatz <b id="zinsV"></b></label><input id="zins" type="range" min="0.01" max="0.09" step="0.001" value="0.04"></div>
+      <div class="fld"><label>Tilgung <b id="tilgV"></b></label><input id="tilg" type="range" min="0" max="0.06" step="0.005" value="0.02"></div>
+      <div class="fld"><label>Steuersatz <b id="taxV"></b></label><input id="tax" type="range" min="0" max="0.48" step="0.005" value="0.425"></div>
+      <div class="fld"><label>Hausgeld, falls unbekannt <b id="hgfV"></b></label><input id="hgf" type="range" min="2" max="8" step="0.25" value="4"></div>
+      <div class="fld"><label>davon nicht umlegbar <b id="hgnV"></b></label><input id="hgn" type="range" min="0.1" max="0.7" step="0.05" value="0.35"></div>
+      <div class="fld"><label>Mietausfall &amp; Reparatur <b id="ausfV"></b></label><input id="ausf" type="range" min="0" max="150" step="5" value="30"></div>
+      <div class="fld"><label>Gebäudeanteil für AfA <b id="gebV"></b></label><input id="geb" type="range" min="0.5" max="0.9" step="0.05" value="0.75"></div>
+      <p class="note">Grunderwerbsteuer je Bundesland, Notar 1,5 %, Grundbuch 0,5 %,
+      Courtage aus dem Inserat. AfA 2,5 % vor 1925, 3 % ab 2023, sonst 2 %.</p>
+    </details>
+
+    <button id="reset" class="btn wide">Alle Filter zurücksetzen</button>
+  </aside>
+
+  <main class="results">
+    <div class="resbar"><div id="count" class="count">lädt …</div><div id="worker" class="worker"></div></div>
+    <div id="list" class="list"></div>
+    <div id="more" class="morewrap hide"><button class="btn wide" id="moreBtn">Weitere anzeigen</button></div>
+    <div id="empty" class="empty hide">
+      <strong>Keine Wohnung passt zu diesen Filtern.</strong>
+      <span>Setz die Mindestrendite herunter oder den Eigenkapitalrahmen herauf.</span>
+    </div>
+  </main>
+</div>
+
+<div id="sheet" class="sheet hide" role="dialog" aria-modal="true">
+  <div class="sheet-in"><button class="sheet-x" id="sheetX" aria-label="Schließen">×</button><div id="sheetBody"></div></div>
+</div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
