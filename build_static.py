@@ -34,6 +34,7 @@ def export_rows():
     rows = c.execute("""
         SELECT * FROM listings
         WHERE rent_status <> 'gone'
+          AND dup_of IS NULL
           AND (rent IS NOT NULL OR is_dad = 1)
         ORDER BY (rent * 12.0 / price) DESC
     """).fetchall()
@@ -57,6 +58,7 @@ def export_rows():
             "kel": r["cellar"] or 0, "ebk": r["ebk"] or 0,
             "ew": r["ew"], "og": r["ortgroesse"], "mn": round(r["marktniveau"], 3) if r["marktniveau"] is not None else None,
             "rk": r["risiko"], "rb": r["risiko_band"], "rg": r["risiko_gruende"],
+            "src": r["source"],
         })
     stats = {
         "total": c.execute("SELECT COUNT(*) n FROM listings").fetchone()["n"],

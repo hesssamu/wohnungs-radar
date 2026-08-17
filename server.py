@@ -91,6 +91,8 @@ def search(qs):
 
     if not f(qs, "showgone", 0, int):
         where.append("rent_status <> 'gone'")
+    if not f(qs, "showdups", 0, int):
+        where.append("(dup_of IS NULL)")
     if f(qs, "onlyrent", 1, int):
         where.append("rent IS NOT NULL")
     if f(qs, "dad", 0, int):
