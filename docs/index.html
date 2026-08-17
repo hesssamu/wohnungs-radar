@@ -7,31 +7,65 @@
 <link rel="stylesheet" href="style.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏠</text></svg>">
 <style>
-  /* Zugangsseite */
-  .gate{position:fixed; inset:0; z-index:100; background:var(--paper);
-    display:flex; align-items:center; justify-content:center; padding:24px;}
-  .gate-box{background:var(--surface); border:1px solid var(--rule); border-radius:14px;
-    padding:30px 28px; max-width:420px; width:100%; box-shadow:var(--sh-2);
-    display:flex; flex-direction:column; gap:14px;}
-  .gate-box h1{font-size:22px; margin:0; letter-spacing:-.01em;}
-  .gate-box p{margin:0; font-size:14px; color:var(--muted); line-height:1.5;}
-  .gate-box input{background:var(--sunk); border:1px solid var(--rule); border-radius:9px;
-    padding:11px 13px; font-size:16px;}
-  .gate-box button{background:var(--accent); border:none; color:#fff; border-radius:9px;
-    padding:11px 13px; font-size:15px; font-weight:650; cursor:pointer;}
-  .gate-err{color:var(--bad); font-size:13.5px; min-height:19px;}
+  /* Zugangsseite — bewusst ohne Abhängigkeit vom Stylesheet, damit sie auch
+     dann richtig aussieht, wenn style.css noch nicht geladen ist. */
+  .gate{position:fixed; inset:0; z-index:100; background:#F2F4F3; color:#16211F;
+    display:flex; align-items:center; justify-content:center; padding:20px;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .gate-box{background:#fff; border:1px solid #E1E5E1; border-radius:18px;
+    padding:44px 40px; max-width:560px; width:100%;
+    box-shadow:0 2px 4px rgba(22,33,31,.05), 0 30px 60px -30px rgba(22,33,31,.35);
+    display:flex; flex-direction:column; gap:20px;}
+  .gate-mark{width:52px; height:52px; border-radius:14px; background:#0F5257; position:relative;}
+  .gate-mark::after{content:""; position:absolute; inset:15px 15px auto 15px; height:7px;
+    background:#fff; border-radius:2px; box-shadow:0 13px 0 #fff;}
+  .gate-box h1{font-size:clamp(26px,5vw,34px); margin:0; letter-spacing:-.02em; line-height:1.15;
+    font-family:ui-serif,"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;}
+  .gate-box p{margin:0; font-size:16px; color:#5E6B66; line-height:1.55;}
+  .gate-field{display:flex; flex-direction:column; gap:9px;}
+  .gate-field label{font-size:12px; letter-spacing:.11em; text-transform:uppercase;
+    color:#6B7873; font-weight:700;}
+  .gate-box input{background:#F6F7F6; border:1.5px solid #DDE2DE; border-radius:12px;
+    padding:17px 18px; font-size:19px; width:100%; box-sizing:border-box; color:#16211F;
+    -webkit-appearance:none;}
+  .gate-box input:focus{outline:none; border-color:#0F5257; background:#fff;}
+  .gate-box button{background:#0F5257; border:none; color:#fff; border-radius:12px;
+    padding:17px 18px; font-size:18px; font-weight:650; cursor:pointer; width:100%;}
+  .gate-box button:hover{background:#0B3E42;}
+  .gate-err{color:#9C3A2E; font-size:15px; min-height:21px; font-weight:600;}
+  .gate-foot{font-size:13.5px; color:#8A948F; border-top:1px solid #EDF0EE; padding-top:16px;}
+  @media (prefers-color-scheme:dark){
+    .gate{background:#0F1513; color:#E7ECE8;}
+    .gate-box{background:#171E1C; border-color:#28322F;
+      box-shadow:0 2px 4px rgba(0,0,0,.5), 0 30px 60px -30px rgba(0,0,0,.9);}
+    .gate-box p{color:#94A19B;}
+    .gate-box input{background:#131A18; border-color:#2E3936; color:#E7ECE8;}
+    .gate-box input:focus{border-color:#5FBCAD; background:#0F1513;}
+    .gate-box button{background:#5FBCAD; color:#0c1412;}
+    .gate-mark{background:#5FBCAD;}
+    .gate-mark::after{background:#0F1513; box-shadow:0 13px 0 #0F1513;}
+    .gate-foot{color:#7C8781; border-top-color:#222B28;}
+  }
+  @media (max-width:520px){ .gate-box{padding:30px 22px; border-radius:14px;} }
 </style>
 </head>
 <body>
 
 <div class="gate" id="gate">
   <form class="gate-box" id="gateForm">
+    <div class="gate-mark" aria-hidden="true"></div>
     <h1>Wohnungs-Radar</h1>
-    <p>Vermietete Eigentumswohnungen aus ganz Deutschland, gerechnet mit unserem Modell.
-       Bitte das Kennwort eingeben.</p>
-    <input type="password" id="gatePw" placeholder="Kennwort" autocomplete="current-password" autofocus>
+    <p>Vermietete Eigentumswohnungen aus ganz Deutschland — mit Ist-Miete aus dem
+       Inserat, durchgerechnet nach unserem Modell.</p>
+    <div class="gate-field">
+      <label for="gatePw">Kennwort</label>
+      <input type="password" id="gatePw" autocomplete="current-password" autofocus
+             placeholder="Kennwort eingeben">
+    </div>
     <button type="submit">Öffnen</button>
     <div class="gate-err" id="gateErr"></div>
+    <div class="gate-foot">Die Seite liegt öffentlich auf GitHub. Das Kennwort hält
+      Zufallsbesucher ab, ist aber kein echter Schutz — es steht im Quelltext.</div>
   </form>
 </div>
 
@@ -78,6 +112,23 @@
         <input id="cfmin" type="range" min="-500" max="800" step="25" value="-500"></div>
       <div class="fld"><label for="ekmax">Eigenkapital bis <b id="ekmaxV">alle</b></label>
         <input id="ekmax" type="range" min="10000" max="400000" step="5000" value="400000"></div>
+    </section>
+
+    <section class="fgroup">
+      <h3>Lage &amp; Risiko</h3>
+      <div class="fld"><label for="rkmax">Risiko höchstens <b id="rkmaxV">alle</b></label>
+        <input id="rkmax" type="range" min="10" max="100" step="5" value="100"></div>
+      <div class="fld"><label for="mnmin">Marktniveau ab <b id="mnminV">alle</b></label>
+        <input id="mnmin" type="range" min="0" max="95" step="5" value="0"></div>
+      <div class="checks" id="ogBox">
+        <label><input type="checkbox" class="og" value="metropole"> Metropole</label>
+        <label><input type="checkbox" class="og" value="grossstadt"> Großstadt</label>
+        <label><input type="checkbox" class="og" value="mittelstadt"> Mittelstadt</label>
+        <label><input type="checkbox" class="og" value="kleinstadt"> Kleinstadt</label>
+        <label><input type="checkbox" class="og" value="land"> Landgemeinde</label>
+      </div>
+      <p class="note">Marktniveau = Median-Kaufpreis je m² im Ort im Vergleich zu allen
+      Orten in Deutschland. Hoch heißt gefragter Markt, niedrig heißt struktureller Abschwung.</p>
     </section>
 
     <section class="fgroup">

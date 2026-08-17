@@ -1,5 +1,5 @@
 /* Wohnungs-Radar — statische Fassung für GitHub Pages.
-   Alles rechnet im Browser; die Daten kommen aus data.json. */
+   Alles rechnet im Browser; die Daten kommen verschluesselt aus data.enc. */
 
 const $ = id => document.getElementById(id);
 const LNAME = {"baden-wuerttemberg":"Baden-Württemberg","bayern":"Bayern","berlin":"Berlin",
@@ -24,20 +24,57 @@ const CHECKS = ['balcony','lift','cellar','ebk','nocourtage','nomulti','onlyrent
 let DATA = [], STATS = {}, shown = 25, preset = {dad:0, star:0};
 let stars = new Set(JSON.parse(localStorage.getItem('wr_stars') || '[]'));
 
-/* ---- Kennwort: bewusst nur eine Türklinke, kein Schloss. Die Daten sind
-       öffentliche Inserate; echten Schutz bietet nur die Server-Fassung. ---- */
-const GATE = 'radar2026';
-function unlock(){ $('gate').remove(); $('app').classList.remove('hide'); start(); }
-$('gateForm').addEventListener('submit', e => {
+/* ---- Zugang: die Daten liegen AES-256-GCM-verschluesselt auf GitHub.
+       Ohne die richtige Passphrase gibt es nichts zu sehen — kein Vergleich
+       im Quelltext, der sich umgehen liesse. ---- */
+async function deriveKey(pw, salt, iter){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw),
+    'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:iter, hash:'SHA-256'},
+    base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+}
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+async function tryOpen(pw){
+  const enc = await (await fetch('data.enc', {cache:'no-store'})).json();
+  const key = await deriveKey(pw, b64(enc.salt), enc.iter);
+  const plain = await crypto.subtle.decrypt(
+    {name:'AES-GCM', iv:b64(enc.iv)}, key, b64(enc.ct));   // wirft bei falschem Passwort
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+function unlock(payload){
+  const g = document.getElementById('gate');
+  if (g) g.remove();
+  $('app').classList.remove('hide');
+  start(payload);
+}
+
+$('gateForm').addEventListener('submit', async e => {
   e.preventDefault();
-  if ($('gatePw').value.trim().toLowerCase() === GATE){
-    sessionStorage.setItem('wr_ok','1'); unlock();
-  } else {
-    $('gateErr').textContent = 'Kennwort stimmt nicht.';
+  const btn = e.target.querySelector('button');
+  const pw = $('gatePw').value.trim();
+  if (!pw) return;
+  btn.disabled = true; btn.textContent = 'Entschlüssele …';
+  $('gateErr').textContent = '';
+  try {
+    const payload = await tryOpen(pw);
+    sessionStorage.setItem('wr_pw', pw);
+    unlock(payload);
+  } catch (err) {
+    $('gateErr').textContent = 'Passwort stimmt nicht.';
     $('gatePw').select();
+    btn.disabled = false; btn.textContent = 'Öffnen';
   }
 });
-if (sessionStorage.getItem('wr_ok') === '1') unlock();
+
+(async () => {
+  const saved = sessionStorage.getItem('wr_pw');
+  if (!saved) return;
+  try { unlock(await tryOpen(saved)); }
+  catch { sessionStorage.removeItem('wr_pw'); }
+})();
 
 function ass(){ return Object.fromEntries(ASS.map(k => [k, +$(k).value])); }
 
@@ -65,6 +102,8 @@ function filtered(){
   const pmin = +$('pmin').value||0, pmax = +$('pmax').value||Infinity;
   const qmin = +$('qmin').value||0, qmax = +$('qmax').value||Infinity;
   const zmin = +$('zmin').value||0, bjmin = +$('bjmin').value||0;
+  const rkmax = +$('rkmax').value, mnmin = +$('mnmin').value;
+  const ogSel = [...document.querySelectorAll('.og:checked')].map(e => e.value);
   const out = [];
   for (const o of DATA){
     if (preset.dad && !o.dad) continue;
@@ -82,6 +121,9 @@ function filtered(){
     if ($('nocourtage').checked && o.ct !== 0) continue;
     if ($('nomulti').checked && o.mu) continue;
     if (q && !((o.o+' '+o.q+' '+o.z+' '+o.t).toLowerCase().includes(q))) continue;
+    if (rkmax < 100 && (o.rk == null || o.rk > rkmax)) continue;
+    if (mnmin > 0 && (o.mn == null || o.mn*100 < mnmin)) continue;
+    if (ogSel.length && !ogSel.includes(o.og)) continue;
     const c = calc(o, a);
     if (rmin > 0 && (c.brutto == null || c.brutto*100 < rmin)) continue;
     if (cfmin > -500 && (c.cf == null || c.cf < cfmin)) continue;
@@ -93,6 +135,7 @@ function filtered(){
     brutto: x => -(x.c.brutto ?? -9), cf: x => -(x.c.cf ?? -9e9), ekr: x => -(x.c.ekr ?? -9),
     ek: x => x.c.ekb, faktor: x => (x.c.faktor ?? 9e9), pqm: x => x.c.pqm,
     price_asc: x => x.o.p, price_desc: x => -x.o.p, qm_desc: x => -x.o.m2,
+    risiko: x => (x.o.rk ?? 999),
   }[s] || (x => -(x.c.brutto ?? -9));
   out.sort((A,B) => key(A)-key(B));
   return out;
@@ -107,6 +150,16 @@ function tags(o){
   if (o.mu) t.push('<span class="tag w">Paket</span>');
   if (o.so) t.push('<span class="tag w">Soll-Miete</span>');
   return t.join('');
+}
+
+const OGL = {metropole:'Metropole', grossstadt:'Großstadt', mittelstadt:'Mittelstadt',
+             kleinstadt:'Kleinstadt', land:'Landgemeinde'};
+function riskChip(o){
+  if (o.rb == null) return '';
+  const cls = {niedrig:'g', mittel:'', 'erhöht':'w', hoch:'w'}[o.rb] ?? '';
+  const size = o.og ? ` · ${OGL[o.og]||o.og}` : '';
+  const mn = o.mn != null ? ` · Markt ${Math.round(o.mn*100)}.` : '';
+  return `<span class="tag ${cls}" title="Risikopunkte ${o.rk} von 100">Risiko ${o.rb}${size}${mn}</span>`;
 }
 
 function card({o, c}){
@@ -138,7 +191,7 @@ function card({o, c}){
         ${c.ekr!=null?`<span class="m ${c.ekr>=0?'pos':'neg'}"><b>${pc(c.ekr,1)}</b> auf EK</span>`:''}
         <span class="m">EK <b>${eur(c.ekb)} €</b></span>
       </div>
-      <div class="tags">${tags(o)}</div>
+      <div class="tags">${riskChip(o)}${tags(o)}</div>
       <div class="b-foot">
         <button class="btn" data-open="${o.id}">Rechnung ansehen</button>
         <a class="btn" href="https://www.immobilienscout24.de/expose/${o.id}" target="_blank" rel="noopener">Inserat</a>
@@ -181,6 +234,8 @@ function detail(id){
       <tr><td>Bruttorendite / Faktor</td><td>${c.brutto!=null?pc(c.brutto)+' / '+dec(c.faktor):'—'}</td></tr>
       <tr><td>Eigenkapitalrendite</td><td>${c.ekr!=null?pc(c.ekr,1):'—'}</td></tr>
     </table>
+    ${o.rg?`<div class="beleg" style="background:var(--warn-bg)"><em>Risiko ${o.rb} — ${o.rk} von 100 Punkten</em>${o.rg}</div>`:''}
+    ${o.ew?`<div class="beleg"><em>Lage</em>${(OGL[o.og]||o.og)} mit ${eur(o.ew)} Einwohnern${o.mn!=null?`, Kaufpreisniveau im Ort liegt über ${Math.round(o.mn*100)} % aller Orte in Deutschland`:''}.</div>`:''}
     ${o.be?`<div class="beleg"><em>Mietbeleg aus dem Inserat</em>…${o.be}…</div>`:''}
     <div class="b-foot" style="margin-top:16px">
       <a class="btn" href="https://www.immobilienscout24.de/expose/${o.id}" target="_blank" rel="noopener">Inserat auf ImmoScout24 öffnen</a>
@@ -201,13 +256,17 @@ function labels(){
   $('hgnV').textContent  = pc(+$('hgn').value,0);
   $('ausfV').textContent = eur(+$('ausf').value)+' €';
   $('gebV').textContent  = pc(+$('geb').value,0);
+  const rk = +$('rkmax').value, mn = +$('mnmin').value;
+  $('rkmaxV').textContent = rk < 100 ? rk + ' Punkte' : 'alle';
+  $('mnminV').textContent = mn > 0 ? 'oberste ' + (100-mn) + ' %' : 'alle';
 }
 
 function bind(){
   const redraw = () => { shown = 25; render(); };
-  ['rmin','cfmin','ekmax',...ASS].forEach(k => $(k).addEventListener('input', () => { labels(); redraw(); }));
+  ['rmin','cfmin','ekmax','rkmax','mnmin',...ASS].forEach(k => $(k).addEventListener('input', () => { labels(); redraw(); }));
   [...NUMS,'q'].forEach(k => $(k).addEventListener('input', () => { clearTimeout(window._t); window._t = setTimeout(redraw, 250); }));
   [...CHECKS,'land','sort'].forEach(k => $(k).addEventListener('change', redraw));
+  document.querySelectorAll('.og').forEach(e => e.addEventListener('change', redraw));
 
   document.querySelectorAll('.chip').forEach(ch => ch.addEventListener('click', () => {
     const p = ch.dataset.preset;
@@ -223,6 +282,8 @@ function bind(){
   $('reset').addEventListener('click', () => {
     NUMS.forEach(k => $(k).value = ''); $('q').value=''; $('land').value='';
     $('rmin').value=0; $('cfmin').value=-500; $('ekmax').value=400000;
+    $('rkmax').value=100; $('mnmin').value=0;
+    document.querySelectorAll('.og').forEach(e => e.checked=false);
     $('ekq').value=.2; $('zins').value=.04; $('tilg').value=.02; $('tax').value=.425;
     $('hgf').value=4; $('hgn').value=.35; $('ausf').value=30; $('geb').value=.75;
     CHECKS.forEach(k => $(k).checked = (k==='onlyrent'));
@@ -250,9 +311,7 @@ function bind(){
   if (window.innerWidth <= 860) $('rail').classList.add('hide');
 }
 
-async function start(){
-  const res = await fetch('data.json');
-  const d = await res.json();
+function start(d){
   DATA = d.items; STATS = d.stats;
   $('tbStats').innerHTML =
     `<b>${STATS.shown.toLocaleString('de-DE')}</b> mit belegter Miete · aus <b>${STATS.total.toLocaleString('de-DE')}</b> Objekten · ` +

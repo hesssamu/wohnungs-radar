@@ -119,6 +119,18 @@ def search(qs):
         where.append("courtage_pct = 0")
     if f(qs, "nomulti", 0, int):
         where.append("multi = 0")
+    og = qs.get("ortgroesse", [""])[0]
+    if og:
+        where.append("ortgroesse IN (%s)" % ",".join("?" * len(og.split(","))))
+        args += og.split(",")
+    rmax = f(qs, "risikomax")
+    if rmax is not None:
+        where.append("risiko <= ?")
+        args.append(rmax)
+    mn = f(qs, "marktmin")
+    if mn is not None:
+        where.append("marktniveau >= ?")
+        args.append(mn / 100.0)
 
     rows = c.execute(f"SELECT * FROM listings WHERE {' AND '.join(where)}", args).fetchall()
 
@@ -172,6 +184,8 @@ def stats():
         "dad": g("SELECT COUNT(*) n FROM listings WHERE is_dad=1"),
         "starred": g("SELECT COUNT(*) n FROM listings WHERE starred=1"),
         "gone": g("SELECT COUNT(*) n FROM listings WHERE rent_status='gone'"),
+        "groessen": [dict(r) for r in conn().execute(
+            "SELECT ortgroesse k, COUNT(*) n FROM listings WHERE ortgroesse IS NOT NULL GROUP BY ortgroesse")],
         "laender": [dict(r) for r in c.execute(
             "SELECT land, COUNT(*) n FROM listings WHERE land<>'' GROUP BY land ORDER BY land")],
         "progress": getmeta(c, "worker_progress", ""),
