@@ -157,9 +157,11 @@ const OGL = {metropole:'Metropole', grossstadt:'Großstadt', mittelstadt:'Mittel
 function riskChip(o){
   if (o.rb == null) return '';
   const cls = {niedrig:'g', mittel:'', 'erhöht':'w', hoch:'w'}[o.rb] ?? '';
+  if (o.rb === 'nicht bewertbar')
+    return `<span class="tag" title="Ohne belegte Ist-Miete ist das Ertragsrisiko nicht beurteilbar">Risiko nicht bewertbar</span>`;
   const size = o.og ? ` · ${OGL[o.og]||o.og}` : '';
   const mn = o.mn != null ? ` · Markt ${Math.round(o.mn*100)}.` : '';
-  return `<span class="tag ${cls}" title="Risikopunkte ${o.rk} von 100">Risiko ${o.rb}${size}${mn}</span>`;
+  return `<span class="tag ${cls}" title="${o.rk} von 100 Risikopunkten">Risiko ${o.rb}${size}${mn}</span>`;
 }
 
 function card({o, c}){
@@ -234,7 +236,7 @@ function detail(id){
       <tr><td>Bruttorendite / Faktor</td><td>${c.brutto!=null?pc(c.brutto)+' / '+dec(c.faktor):'—'}</td></tr>
       <tr><td>Eigenkapitalrendite</td><td>${c.ekr!=null?pc(c.ekr,1):'—'}</td></tr>
     </table>
-    ${o.rg?`<div class="beleg" style="background:var(--warn-bg)"><em>Risiko ${o.rb} — ${o.rk} von 100 Punkten</em>${o.rg}</div>`:''}
+    ${o.rg?`<div class="beleg" style="background:var(--warn-bg)"><em>Risiko ${o.rb}${o.rk!=null?` — ${o.rk} von 100 Punkten`:''}</em>${o.rg}</div>`:''}
     ${o.ew?`<div class="beleg"><em>Lage</em>${(OGL[o.og]||o.og)} mit ${eur(o.ew)} Einwohnern${o.mn!=null?`, Kaufpreisniveau im Ort liegt über ${Math.round(o.mn*100)} % aller Orte in Deutschland`:''}.</div>`:''}
     ${o.be?`<div class="beleg"><em>Mietbeleg aus dem Inserat</em>…${o.be}…</div>`:''}
     <div class="b-foot" style="margin-top:16px">
