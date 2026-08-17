@@ -27,6 +27,22 @@ Voraussetzung: der Mac Studio läuft und Tailscale ist auf beiden Geräten an.
 Nur-lokal erzwingen: `HOST=127.0.0.1 ./run.sh`.
 Für Papa, der nicht im Tailnet ist, siehe „Teilen“ unten.
 
+### Passwort
+
+Der Server verlangt HTTP-Basic-Auth, sobald in `~/.config/secrets/wohnungs-radar.env`
+ein `RADAR_PASS` steht (Vorlage: `wohnungs-radar.env.example`). Ohne Passwort läuft
+die Anwendung ungeschützt — dann bitte nur auf localhost betreiben.
+
+Geschützt ist **alles**, auch die API. Passwort ändern: Datei bearbeiten, Server neu starten.
+
+### Deaktivierte Angebote
+
+Ein zurückgezogenes Inserat liefert weiterhin die volle Seite mit Preis und
+Beschreibung — es muss also ausdrücklich erkannt werden, sonst sieht ein totes
+Angebot aus wie ein lebendiges Schnäppchen. `core.is_gone()` prüft auf
+„Angebot wurde deaktiviert“; solche Objekte bekommen `rent_status='gone'` und
+tauchen in der Suche nicht mehr auf (`?showgone=1` zeigt sie doch).
+
 ### Teilen mit jemandem außerhalb des Tailnets
 
 Zwei saubere Wege, beide erst nach ausdrücklicher Freigabe:
