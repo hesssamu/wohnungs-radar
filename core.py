@@ -251,6 +251,15 @@ def description(h):
 
 YEARLY_PREFIX = re.compile(r"(?:jahres|jährliche?r?)\s*$", re.I)
 
+# Die Miete gehoert zu einer groesseren Einheit als der bepreisten Wohnung:
+# Gesamtmiete eines Hauses, eines Pakets oder mehrerer Einheiten. Solche Zahlen
+# sind fuer sich richtig, aber nicht auf diese Wohnung umrechenbar.
+PACKAGE_RENT = re.compile(
+    r"gesamt(?:kalt)?miete|gesamt(?:e|en)?\s+(?:netto)?kaltmiete|wohnungspaket|"
+    r"alle\s+einheiten|einheiten\s+sind\s+vermietet|zimmerweise\s+vermietet|"
+    r"mehrfamilienhaus|wohn-\s?und\s?gesch|je\s+[\d.]{3,9}\s*(?:€|EUR)|"
+    r"weiteres\s+wohnungspaket|pro\s+einheit", re.I)
+
 
 def extract_rent(txt, qm=None):
     """
@@ -282,6 +291,8 @@ def extract_rent(txt, qm=None):
                 v /= 12
             if not (120 <= v <= 4500):
                 continue
+            if PACKAGE_RENT.search(wide):
+                continue        # Miete eines Pakets/Hauses, nicht dieser Wohnung
             if qm and not (2.0 <= v / qm <= 30.0):   # implausible €/m² -> parse artefact
                 continue
             hits.append((cls, m.start(), v, wide))
